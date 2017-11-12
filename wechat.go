@@ -1,13 +1,11 @@
 package goauth
 
 import (
-//"fmt"
-//"regexp"
-//"strconv"
+	"fmt"
 )
 
 import (
-//"github.com/sanxia/glib"
+	"github.com/sanxia/glib"
 )
 
 /* ================================================================================
@@ -21,4 +19,266 @@ type (
 	OauthWeChat struct {
 		Oauth
 	}
+
+	WeChatAccessTokenResponese struct {
+		ErrCode      string `form:"errcode" json:"errcode"`
+		ErrMsg       string `form:"errmsg" json:"errmsg"`
+		OpenId       string `form:"openid" json:"openid"`
+		UnionId      string `form:"unionid" json:"unionid"`
+		AccessToken  string `form:"access_token" json:"access_token"`
+		RefreshToken string `form:"refresh_token" json:"refresh_token"`
+		ExpiresIn    int    `form:"expires_in" json:"expires_in"`
+		Scope        string `form:"scope" json:"scope"`
+	}
+
+	//微信用户信息响应结构
+	WeChatUserInfoResponese struct {
+		ErrCode    string   `form:"errcode" json:"errcode"`
+		ErrMsg     string   `form:"errmsg" json:"errmsg"`
+		OpenId     string   `form:"openid" json:"openid"`   //普通用户的标识，对当前开发者帐号唯一
+		UnionId    string   `form:"unionid" json:"unionid"` //用户统一标识。针对一个微信开放平台帐号下的应用，同一用户的unionid是唯一的。
+		Nickname   string   `form:"nickname" json:"nickname"`
+		HeadImgUrl string   `form:"headimgurl" json:"headimgurl"` //用户头像，最后一个数值代表正方形头像大小（有0、46、64、96、132数值可选，0代表640*640正方形头像），用户没有头像时该项为空
+		Sex        int      `form:"sex" json:"sex"`               //普通用户性别，1为男性，2为女性
+		Country    string   `form:"country" json:"country"`       //国家，如中国为CN
+		Province   string   `form:"province" json:"province"`     //普通用户个人资料填写的省份
+		City       string   `form:"city" json:"city"`             //普通用户个人资料填写的城市
+		Privileges []string `form:"privilege" json:"privilege"`   //用户特权信息，json数组，如微信沃卡用户为（chinaunicom）
+	}
 )
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 初始化OauthWeChat
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func NewOauthWechat(clientId, clientSecret, callbackUri string) IOauth {
+	defaultCallbackUri := "http://www.woshiyiren.com/passport/oauth/wechat/callback"
+	if callbackUri == "" {
+		callbackUri = defaultCallbackUri
+	}
+
+	oauth := new(OauthWeChat)
+	oauth.ClientId = clientId
+	oauth.ClientSecret = clientSecret
+	oauth.CallbackUri = callbackUri
+
+	oauth.AuthorizeCodeUri = "https://open.weixin.qq.com/connect/qrconnect"
+	oauth.AccessTokenUri = "https://api.weixin.qq.com/sns/oauth2/access_token"
+	oauth.RefreshTokenUri = "https://api.weixin.qq.com/sns/oauth2/refresh_token"
+	oauth.UserInfoUri = "https://api.weixin.qq.com/sns/userinfo"
+
+	return oauth
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 设置Uri
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *OauthWeChat) SetUri(uriType OauthUriType, uri string) {
+	switch uriType {
+	case AuthorizeCodeUri:
+		s.AuthorizeCodeUri = uri
+	case AccessTokenUri:
+		s.AccessTokenUri = uri
+	case RefreshTokenUri:
+		s.RefreshTokenUri = uri
+	case UserInfoUri:
+		s.UserInfoUri = uri
+	}
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取鉴权地址
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *OauthWeChat) GetAuthorizeUrl(args ...string) string {
+	scope, state := "", ""
+
+	argCount := len(args)
+	if argCount > 0 {
+		scope = args[0]
+
+		if argCount > 1 {
+			state = args[1]
+		}
+	}
+
+	if scope == "" {
+		scope = "snsapi_login"
+	}
+
+	if state == "" {
+		state = "wechat"
+	}
+
+	param := ""
+	params := map[string]string{
+		"appid":         s.ClientId,
+		"redirect_uri":  s.CallbackUri,
+		"scope":         scope,
+		"state":         state,
+		"response_type": "code",
+	}
+
+	for k, v := range params {
+		param = param + fmt.Sprintf("%s=%s&", k, v)
+	}
+
+	param = param[0 : len(param)-1]
+
+	return s.AuthorizeCodeUri + "?" + param
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取AccessToken
+ * {
+ * "access_token":"ACCESS_TOKEN",
+ * "expires_in":7200,
+ * "refresh_token":"REFRESH_TOKEN",
+ * "openid":"OPENID",
+ * "scope":"SCOPE"
+ * }
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *OauthWeChat) GetAccessToken(code string) (*OauthToken, error) {
+	param := ""
+	params := map[string]string{
+		"appid":      s.ClientId,
+		"secret":     s.ClientSecret,
+		"code":       code,
+		"grant_type": "authorization_code",
+	}
+
+	for k, v := range params {
+		param = param + fmt.Sprintf("%s=%s&", k, v)
+	}
+	param = param[0 : len(param)-1]
+
+	//获取api接口响应数据
+	resp, err := glib.HttpGet(s.AccessTokenUri, param)
+	if err == nil {
+		//解析json数据
+		var tokenResponse *WeChatAccessTokenResponese
+		glib.FromJson(resp, &tokenResponse)
+
+		if tokenResponse != nil {
+			s.Token = &OauthToken{
+				AccessToken:  tokenResponse.AccessToken,
+				RefreshToken: tokenResponse.RefreshToken,
+				OpenId:       tokenResponse.OpenId,
+				UnionId:      tokenResponse.UnionId,
+				Scope:        tokenResponse.Scope,
+				ExpiresIn:    tokenResponse.ExpiresIn,
+				RawContent:   resp,
+			}
+
+			return s.Token, nil
+		}
+	}
+
+	return nil, err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 刷新AccessToken
+ * {
+ * "access_token":"ACCESS_TOKEN",
+ * "expires_in":7200,
+ * "refresh_token":"REFRESH_TOKEN",
+ * "openid":"OPENID",
+ * "scope":"SCOPE"
+ * }
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *OauthWeChat) RefreshAccessToken(refreshToken string) (*OauthToken, error) {
+	param := ""
+	params := map[string]string{
+		"appid":         s.ClientId,
+		"refresh_token": refreshToken,
+		"grant_type":    "refresh_token",
+	}
+
+	for k, v := range params {
+		param = param + fmt.Sprintf("%s=%s&", k, v)
+	}
+
+	param = param[0 : len(param)-1]
+
+	//获取api接口响应数据
+	resp, err := glib.HttpGet(s.RefreshTokenUri, param)
+	if err == nil {
+		//解析json数据
+		var tokenResponse *WeChatAccessTokenResponese
+		glib.FromJson(resp, &tokenResponse)
+
+		if tokenResponse != nil {
+			s.Token = &OauthToken{
+				AccessToken:  tokenResponse.AccessToken,
+				RefreshToken: tokenResponse.RefreshToken,
+				OpenId:       tokenResponse.OpenId,
+				Scope:        tokenResponse.Scope,
+				ExpiresIn:    tokenResponse.ExpiresIn,
+				RawContent:   resp,
+			}
+		}
+		return s.Token, nil
+	}
+
+	return nil, err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取用户信息
+ * {
+ * "openid":"OPENID",
+ * "nickname":"NICKNAME",
+ * "sex":1,
+ * "province":"PROVINCE",
+ * "city":"CITY",
+ * "country":"COUNTRY",
+ * "headimgurl": "http://wx.qlogo.cn/mmopen/g3MonUZtNHkdmzicIlibx6iaFqAc56vxLSUfpb6n5WKSYVY0ChQKkiaJSgQ1dZuTOgvLLrhJbERQQ4eMsv84eavHiaiceqxibJxCfHe/0",
+ * "privilege":[
+ * "PRIVILEGE1",
+ * "PRIVILEGE2"
+ * ],
+ * "unionid": " o6_bmasdasdsad6_2sgVt7hMZOPfL"
+ * }
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *OauthWeChat) GetUserInfo(accessToken, openId string) (*OauthUser, error) {
+	var oauthUser *OauthUser
+	param := ""
+	params := map[string]string{
+		"access_token": accessToken,
+		"openid":       openId,
+		"lang":         "zh-CN",
+	}
+
+	for k, v := range params {
+		param = param + fmt.Sprintf("%s=%s&", k, v)
+	}
+
+	param = param[0 : len(param)-1]
+
+	//获取api接口响应数据
+	resp, err := glib.HttpGet(s.UserInfoUri, param)
+	if err == nil {
+		var userInfoResponse *WeChatUserInfoResponese
+
+		//解析json数据
+		glib.FromJson(resp, &userInfoResponse)
+
+		if userInfoResponse != nil {
+			sexCode := "secret"
+			if userInfoResponse.Sex == 1 {
+				sexCode = "male"
+			} else if userInfoResponse.Sex == 2 {
+				sexCode = "female"
+			}
+			oauthUser = &OauthUser{
+				Nickname:   userInfoResponse.Nickname,
+				Avatar:     userInfoResponse.HeadImgUrl,
+				Sex:        sexCode,
+				RawContent: resp,
+			}
+
+			s.Token.UnionId = userInfoResponse.UnionId
+		}
+	}
+
+	return oauthUser, err
+}

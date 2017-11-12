@@ -10,6 +10,7 @@ package goauth
 const (
 	AuthorizeCodeUri OauthUriType = iota
 	AccessTokenUri
+	RefreshTokenUri
 	OpenIdUri
 	UserInfoUri
 )
@@ -19,12 +20,10 @@ type (
 
 	IOauth interface {
 		SetUri(uriType OauthUriType, uri string)
-		SetScope(scope string)
 
-		GetAuthorizeUrl() string
+		GetAuthorizeUrl(args ...string) string
 		GetAccessToken(code string) (*OauthToken, error)
 		RefreshAccessToken(refreshToken string) (*OauthToken, error)
-		GetOpenId(accessToken string) (string, error)
 		GetUserInfo(accessToken, openId string) (*OauthUser, error)
 	}
 
@@ -32,19 +31,23 @@ type (
 		ClientId     string //app id
 		ClientSecret string //app secret
 
-		CallbackUri      string //回调地址
+		CallbackUri      string //服务器回调地址
 		AuthorizeCodeUri string //请求code地址
 		AccessTokenUri   string //请求access_token地址
+		RefreshTokenUri  string //请求refresh_token地址
 		OpenIdUri        string //请求open_id地址
 		UserInfoUri      string //请求用户信息地址
 
-		Scope string
+		Token *OauthToken
 	}
 
 	OauthToken struct {
 		AccessToken  string
 		RefreshToken string
+		OpenId       string
+		UnionId      string
 		ExpiresIn    int
+		Scope        string
 		RawContent   string
 	}
 

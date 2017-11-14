@@ -5,10 +5,12 @@ Example:
 ---------------
 import "github.com/sanxia/goauth"
 
-oauthQQ := goauth.NewOauthQq("you app id", "you app secret", "you callback url")
+//QQ oauth
+qqOauth := goauth.NewQq("you app id", "you app secret", "you callback url")
+qqToken, err := qqOauth.GetAccessToken(code)
+qqUserInfo, err := qqOauth.GetUserInfo(qqToken.AccessToken, qqToken.OpenId)
 
-token, err := oauthQQ.GetAccessToken(code)
-
-openId, err := oauthQQ.GetOpenId(token.AccessToken)
-
-oauthUserInfo, err := oauthQQ.GetUserInfo(token.AccessToken, openId)
+//WeChat Oauth
+weChatOauth := goauth.NewWeChat("you app id", "you app secret", "you callback url")
+weChatToken, err := weChatOauth.GetAccessToken(code)
+weChatUserInfo, err := weChatOauth.GetUserInfo(weChatToken.AccessToken, weChatToken.OpenId)

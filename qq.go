@@ -22,14 +22,9 @@ type (
 )
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 初始化OauthQq
+ * 初始化Qq授权
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func NewOauthQq(clientId, clientSecret, callbackUri string) IOauth {
-	defaultCallbackUri := "http://www.woshiyiren.com/passport/oauth/qq/callback"
-	if callbackUri == "" {
-		callbackUri = defaultCallbackUri
-	}
-
+func NewQq(clientId, clientSecret, callbackUri string) IOauth {
 	oauth := new(OauthQq)
 	oauth.ClientId = clientId
 	oauth.ClientSecret = clientSecret
@@ -64,32 +59,25 @@ func (s *OauthQq) SetUri(uriType OauthUriType, uri string) {
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 获取鉴权地址
+ * state, scope
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthQq) GetAuthorizeUrl(args ...string) string {
-	scope, state := "", ""
+	state, scope := "qq", "get_user_info"
 	display := "mobile"
 
 	argCount := len(args)
 	if argCount > 0 {
-		scope = args[0]
+		state = args[0]
 
 		if argCount > 1 {
-			state = args[1]
+			scope = args[1]
 		}
-	}
-
-	if scope == "" {
-		scope = "get_user_info"
-	}
-
-	if state == "" {
-		state = "qq"
 	}
 
 	param := ""
 	params := map[string]string{
 		"client_id":     s.ClientId,
-		"redirect_uri":  s.CallbackUri,
+		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
 		"display":       display,
 		"scope":         scope,
 		"state":         state,
@@ -113,7 +101,7 @@ func (s *OauthQq) GetAccessToken(code string) (*OauthToken, error) {
 	params := map[string]string{
 		"client_id":     s.ClientId,
 		"client_secret": s.ClientSecret,
-		"redirect_uri":  s.CallbackUri,
+		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
 		"code":          code,
 		"grant_type":    "authorization_code",
 	}

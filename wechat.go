@@ -48,14 +48,9 @@ type (
 )
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * 初始化OauthWeChat
+ * 初始化WeChat授权
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
-func NewOauthWechat(clientId, clientSecret, callbackUri string) IOauth {
-	defaultCallbackUri := "http://www.woshiyiren.com/passport/oauth/wechat/callback"
-	if callbackUri == "" {
-		callbackUri = defaultCallbackUri
-	}
-
+func NewWeChat(clientId, clientSecret, callbackUri string) IOauth {
 	oauth := new(OauthWeChat)
 	oauth.ClientId = clientId
 	oauth.ClientSecret = clientSecret
@@ -87,31 +82,24 @@ func (s *OauthWeChat) SetUri(uriType OauthUriType, uri string) {
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 获取鉴权地址
+ * state, scope
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthWeChat) GetAuthorizeUrl(args ...string) string {
-	scope, state := "", ""
+	state, scope := "wechat", "snsapi_login"
 
 	argCount := len(args)
 	if argCount > 0 {
-		scope = args[0]
+		state = args[0]
 
 		if argCount > 1 {
-			state = args[1]
+			scope = args[1]
 		}
-	}
-
-	if scope == "" {
-		scope = "snsapi_login"
-	}
-
-	if state == "" {
-		state = "wechat"
 	}
 
 	param := ""
 	params := map[string]string{
 		"appid":         s.ClientId,
-		"redirect_uri":  s.CallbackUri,
+		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
 		"scope":         scope,
 		"state":         state,
 		"response_type": "code",

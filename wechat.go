@@ -1,10 +1,6 @@
 package goauth
 
 import (
-	"fmt"
-)
-
-import (
 	"github.com/sanxia/glib"
 )
 
@@ -20,7 +16,7 @@ type (
 		Oauth
 	}
 
-	WeChatAccessTokenResponese struct {
+	WeChatAccessTokenResponse struct {
 		ErrCode      string `form:"errcode" json:"errcode"`
 		ErrMsg       string `form:"errmsg" json:"errmsg"`
 		OpenId       string `form:"openid" json:"openid"`
@@ -32,7 +28,7 @@ type (
 	}
 
 	//微信用户信息响应结构
-	WeChatUserInfoResponese struct {
+	WeChatUserInfoResponse struct {
 		ErrCode    string   `form:"errcode" json:"errcode"`
 		ErrMsg     string   `form:"errmsg" json:"errmsg"`
 		OpenId     string   `form:"openid" json:"openid"`   //普通用户的标识，对当前开发者帐号唯一
@@ -96,8 +92,7 @@ func (s *OauthWeChat) GetAuthorizeUrl(args ...string) string {
 		}
 	}
 
-	param := ""
-	params := map[string]string{
+	params := map[string]interface{}{
 		"appid":         s.ClientId,
 		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
 		"scope":         scope,
@@ -105,13 +100,9 @@ func (s *OauthWeChat) GetAuthorizeUrl(args ...string) string {
 		"response_type": "code",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
+	queryString := glib.ToQueryString(params)
 
-	param = param[0 : len(param)-1]
-
-	return s.AuthorizeCodeUri + "?" + param
+	return s.AuthorizeCodeUri + "?" + queryString
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -125,28 +116,26 @@ func (s *OauthWeChat) GetAuthorizeUrl(args ...string) string {
  * }
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthWeChat) GetAccessToken(code string) (*OauthToken, error) {
-	param := ""
-	params := map[string]string{
+	var oauthToken *OauthToken
+
+	params := map[string]interface{}{
 		"appid":      s.ClientId,
 		"secret":     s.ClientSecret,
 		"code":       code,
 		"grant_type": "authorization_code",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
-	param = param[0 : len(param)-1]
+	queryString := glib.ToQueryString(params)
 
-	//获取api接口响应数据
-	resp, err := glib.HttpGet(s.AccessTokenUri, param)
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.AccessTokenUri, queryString)
 	if err == nil {
 		//解析json数据
-		var tokenResponse *WeChatAccessTokenResponese
+		var tokenResponse *WeChatAccessTokenResponse
 		glib.FromJson(resp, &tokenResponse)
 
 		if tokenResponse != nil {
-			s.Token = &OauthToken{
+			oauthToken = &OauthToken{
 				AccessToken:  tokenResponse.AccessToken,
 				RefreshToken: tokenResponse.RefreshToken,
 				OpenId:       tokenResponse.OpenId,
@@ -156,7 +145,7 @@ func (s *OauthWeChat) GetAccessToken(code string) (*OauthToken, error) {
 				RawContent:   resp,
 			}
 
-			return s.Token, nil
+			return oauthToken, nil
 		}
 	}
 
@@ -174,28 +163,25 @@ func (s *OauthWeChat) GetAccessToken(code string) (*OauthToken, error) {
  * }
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthWeChat) RefreshAccessToken(refreshToken string) (*OauthToken, error) {
-	param := ""
-	params := map[string]string{
+	var oauthToken *OauthToken
+
+	params := map[string]interface{}{
 		"appid":         s.ClientId,
 		"refresh_token": refreshToken,
 		"grant_type":    "refresh_token",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
+	queryString := glib.ToQueryString(params)
 
-	param = param[0 : len(param)-1]
-
-	//获取api接口响应数据
-	resp, err := glib.HttpGet(s.RefreshTokenUri, param)
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.RefreshTokenUri, queryString)
 	if err == nil {
 		//解析json数据
-		var tokenResponse *WeChatAccessTokenResponese
+		var tokenResponse *WeChatAccessTokenResponse
 		glib.FromJson(resp, &tokenResponse)
 
 		if tokenResponse != nil {
-			s.Token = &OauthToken{
+			oauthToken = &OauthToken{
 				AccessToken:  tokenResponse.AccessToken,
 				RefreshToken: tokenResponse.RefreshToken,
 				OpenId:       tokenResponse.OpenId,
@@ -204,7 +190,7 @@ func (s *OauthWeChat) RefreshAccessToken(refreshToken string) (*OauthToken, erro
 				RawContent:   resp,
 			}
 		}
-		return s.Token, nil
+		return oauthToken, nil
 	}
 
 	return nil, err
@@ -229,23 +215,18 @@ func (s *OauthWeChat) RefreshAccessToken(refreshToken string) (*OauthToken, erro
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthWeChat) GetUserInfo(accessToken, openId string) (*OauthUser, error) {
 	var oauthUser *OauthUser
-	param := ""
-	params := map[string]string{
+	params := map[string]interface{}{
 		"access_token": accessToken,
 		"openid":       openId,
 		"lang":         "zh-CN",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
+	queryString := glib.ToQueryString(params)
 
-	param = param[0 : len(param)-1]
-
-	//获取api接口响应数据
-	resp, err := glib.HttpGet(s.UserInfoUri, param)
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.UserInfoUri, queryString)
 	if err == nil {
-		var userInfoResponse *WeChatUserInfoResponese
+		var userInfoResponse *WeChatUserInfoResponse
 
 		//解析json数据
 		glib.FromJson(resp, &userInfoResponse)
@@ -262,9 +243,11 @@ func (s *OauthWeChat) GetUserInfo(accessToken, openId string) (*OauthUser, error
 				Avatar:     userInfoResponse.HeadImgUrl,
 				Sex:        sexCode,
 				RawContent: resp,
-			}
 
-			s.Token.UnionId = userInfoResponse.UnionId
+				Token: &OauthToken{
+					UnionId: userInfoResponse.UnionId,
+				},
+			}
 		}
 	}
 

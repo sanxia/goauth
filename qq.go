@@ -59,11 +59,10 @@ func (s *OauthQq) SetUri(uriType OauthUriType, uri string) {
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 获取鉴权地址
- * state, scope
+ * args: state, scope
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthQq) GetAuthorizeUrl(args ...string) string {
-	state, scope := "qq", "get_user_info"
-	display := "mobile"
+	state, scope, display := "qq", "get_user_info", "mobile"
 
 	argCount := len(args)
 	if argCount > 0 {
@@ -72,10 +71,13 @@ func (s *OauthQq) GetAuthorizeUrl(args ...string) string {
 		if argCount > 1 {
 			scope = args[1]
 		}
+
+		if argCount > 2 {
+			display = args[2]
+		}
 	}
 
-	param := ""
-	params := map[string]string{
+	params := map[string]interface{}{
 		"client_id":     s.ClientId,
 		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
 		"display":       display,
@@ -84,21 +86,18 @@ func (s *OauthQq) GetAuthorizeUrl(args ...string) string {
 		"response_type": "code",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
+	queryString := glib.ToQueryString(params)
 
-	param = param[0 : len(param)-1]
-
-	return s.AuthorizeCodeUri + "?" + param
+	return s.AuthorizeCodeUri + "?" + queryString
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 获取AccessToken
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthQq) GetAccessToken(code string) (*OauthToken, error) {
-	param := ""
-	params := map[string]string{
+	var oauthToken *OauthToken
+
+	params := map[string]interface{}{
 		"client_id":     s.ClientId,
 		"client_secret": s.ClientSecret,
 		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
@@ -106,63 +105,60 @@ func (s *OauthQq) GetAccessToken(code string) (*OauthToken, error) {
 		"grant_type":    "authorization_code",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
-	param = param[0 : len(param)-1]
+	queryString := glib.ToQueryString(params)
 
-	//获取api接口响应数据
-	resp, err := glib.HttpGet(s.AccessTokenUri, param)
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.AccessTokenUri, queryString)
 	if err == nil {
 		//响应数据解析
 		accessToken, refreshToken, expiresIn := ParseAccessTokenForQq(resp)
-		s.Token = &OauthToken{
+
+		oauthToken = &OauthToken{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 			ExpiresIn:    expiresIn,
 			RawContent:   resp,
 		}
 
-		if s.Token.AccessToken != "" {
-			if openId, err := s.GetOpenId(s.Token.AccessToken); err == nil {
-				s.Token.OpenId = openId
+		if oauthToken.AccessToken != "" {
+			if openId, err := s.GetOpenId(oauthToken.AccessToken); err == nil {
+				oauthToken.OpenId = openId
 			}
 		}
 	}
 
-	return s.Token, err
+	return oauthToken, err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
  * 刷新AccessToken
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthQq) RefreshAccessToken(refreshToken string) (*OauthToken, error) {
-	param := ""
-	params := map[string]string{
+	var oauthToken *OauthToken
+
+	params := map[string]interface{}{
 		"client_id":     s.ClientId,
 		"client_secret": s.ClientSecret,
 		"refresh_token": refreshToken,
 		"grant_type":    "refresh_token",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
+	queryString := glib.ToQueryString(params)
 
-	param = param[0 : len(param)-1]
-
-	//获取api接口响应数据
-	resp, err := glib.HttpGet(s.RefreshTokenUri, param)
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.RefreshTokenUri, queryString)
 	if err == nil {
 		//响应数据解析
 		accessToken, refreshToken, expiresIn := ParseAccessTokenForQq(resp)
-		s.Token.AccessToken = accessToken
-		s.Token.RefreshToken = refreshToken
-		s.Token.ExpiresIn = expiresIn
-		s.Token.RawContent = resp
+		oauthToken = &OauthToken{
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
+			ExpiresIn:    expiresIn,
+			RawContent:   resp,
+		}
 	}
 
-	return s.Token, err
+	return oauthToken, err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -172,7 +168,7 @@ func (s *OauthQq) GetOpenId(accessToken string) (string, error) {
 	openId := ""
 	param := fmt.Sprintf("%s=%s", "access_token", accessToken)
 
-	//获取api接口响应数据
+	//获取api响应数据
 	resp, err := glib.HttpGet(s.OpenIdUri, param)
 	if err == nil {
 		//响应数据解析
@@ -187,22 +183,17 @@ func (s *OauthQq) GetOpenId(accessToken string) (string, error) {
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthQq) GetUserInfo(accessToken, openId string) (*OauthUser, error) {
 	var oauthUser *OauthUser
-	param := ""
-	params := map[string]string{
+	params := map[string]interface{}{
 		"oauth_consumer_key": s.ClientId,
 		"access_token":       accessToken,
 		"openid":             openId,
 		"format":             "json",
 	}
 
-	for k, v := range params {
-		param = param + fmt.Sprintf("%s=%s&", k, v)
-	}
+	queryString := glib.ToQueryString(params)
 
-	param = param[0 : len(param)-1]
-
-	//获取api接口响应数据
-	resp, err := glib.HttpGet(s.UserInfoUri, param)
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.UserInfoUri, queryString)
 	if err == nil {
 		//响应数据解析
 		oauthUser = ParseUserInfoForQq(resp)

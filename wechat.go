@@ -94,7 +94,7 @@ func (s *OauthWeChat) GetAuthorizeUrl(args ...string) string {
 
 	params := map[string]interface{}{
 		"appid":         s.ClientId,
-		"redirect_uri":  glib.UrlEncode(s.CallbackUri),
+		"redirect_uri":  glib.QueryEncode(s.CallbackUri),
 		"scope":         scope,
 		"state":         state,
 		"response_type": "code",
@@ -142,7 +142,6 @@ func (s *OauthWeChat) GetAccessToken(code string) (*OauthToken, error) {
 				UnionId:      tokenResponse.UnionId,
 				Scope:        tokenResponse.Scope,
 				ExpiresIn:    tokenResponse.ExpiresIn,
-				RawContent:   resp,
 			}
 
 			return oauthToken, nil
@@ -187,7 +186,6 @@ func (s *OauthWeChat) RefreshAccessToken(refreshToken string) (*OauthToken, erro
 				OpenId:       tokenResponse.OpenId,
 				Scope:        tokenResponse.Scope,
 				ExpiresIn:    tokenResponse.ExpiresIn,
-				RawContent:   resp,
 			}
 		}
 		return oauthToken, nil
@@ -239,10 +237,9 @@ func (s *OauthWeChat) GetUserInfo(accessToken, openId string) (*OauthUser, error
 				sexCode = "female"
 			}
 			oauthUser = &OauthUser{
-				Nickname:   userInfoResponse.Nickname,
-				Avatar:     userInfoResponse.HeadImgUrl,
-				Sex:        sexCode,
-				RawContent: resp,
+				Nickname: userInfoResponse.Nickname,
+				Avatar:   userInfoResponse.HeadImgUrl,
+				Sex:      sexCode,
 
 				Token: &OauthToken{
 					UnionId: userInfoResponse.UnionId,

@@ -46,14 +46,15 @@ type (
 		UnionId      string
 		ExpiresIn    int
 		Scope        string
-		RawContent   string
 	}
 
 	OauthUser struct {
-		Avatar     string
-		Nickname   string
-		Sex        string
-		RawContent string
+		Avatar   string
+		Nickname string
+		Sex      string
+		Year     string
+		Province string
+		City     string
 
 		Token *OauthToken
 	}

@@ -5,7 +5,8 @@ Example:
 ---------------
 import "github.com/sanxia/goauth"
 
-*****QQ oauth
+QQ oauth
+=====
 
 qqOauth := goauth.NewQq("you app id", "you app secret", "you callback url")
 
@@ -15,7 +16,8 @@ qqUserInfo, err := qqOauth.GetUserInfo(qqToken.AccessToken, qqToken.OpenId)
 
 
 
-*****WeChat Oauth
+WeChat Oauth
+=====
 
 weChatOauth := goauth.NewWeChat("you app id", "you app secret", "you callback url")
 

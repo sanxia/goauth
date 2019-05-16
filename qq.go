@@ -143,6 +143,12 @@ func (s *OauthQq) GetAccessToken(code string) (*OauthToken, error) {
 			if openId, err := s.GetOpenId(oauthToken.AccessToken); err == nil {
 				oauthToken.OpenId = openId
 			}
+
+			if len(oauthToken.OpenId) > 0 {
+				if unionId, err := s.GetUnionId(oauthToken.AccessToken); err == nil {
+					oauthToken.UnionId = unionId
+				}
+			}
 		}
 	}
 
@@ -184,7 +190,7 @@ func (s *OauthQq) RefreshAccessToken(refreshToken string) (*OauthToken, error) {
  * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
 func (s *OauthQq) GetOpenId(accessToken string) (string, error) {
 	openId := ""
-	param := fmt.Sprintf("%s=%s", "access_token", accessToken)
+	param := fmt.Sprintf("access_token=%s", accessToken)
 
 	//获取api响应数据
 	resp, err := glib.HttpGet(s.OpenIdUri, param)
@@ -194,6 +200,27 @@ func (s *OauthQq) GetOpenId(accessToken string) (string, error) {
 	}
 
 	return openId, err
+}
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 获取UnionId
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func (s *OauthQq) GetUnionId(accessToken string) (string, error) {
+	unionId := ""
+	params := map[string]interface{}{
+		"access_token": accessToken,
+		"unionid":      1,
+	}
+
+	queryString := glib.ToQueryString(params)
+
+	//获取api响应数据
+	resp, err := glib.HttpGet(s.OpenIdUri, queryString)
+	if err == nil {
+		unionId = ParseUnionIdForQq(resp)
+	}
+
+	return unionId, err
 }
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

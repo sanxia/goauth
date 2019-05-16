@@ -54,3 +54,20 @@ func ParseOpenIdForQq(source string) string {
 
 	return openId
 }
+
+/* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ * 解析QQ返回的UnionId
+ * ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ */
+func ParseUnionIdForQq(source string) string {
+	unionId := ""
+
+	if source != "" {
+		pattern := "callback.+{\"client_id\":\"(.*)\",\"openid\":\"(.*)\",\"unionid\":\"(.*)\"\\}.+"
+		re, _ := regexp.Compile(pattern)
+		if matchs := re.FindStringSubmatch(source); len(matchs) == 4 {
+			unionId = matchs[3]
+		}
+	}
+
+	return unionId
+}

@@ -14,7 +14,6 @@ import (
  * email   : 2091938785@qq.com
  * author  : 美丽的地球啊 - mliu
  * ================================================================================ */
-
 type (
 	QqUserInfoResponse struct {
 		Ret             int    `form:"ret" json:"ret"`

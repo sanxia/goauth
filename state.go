@@ -15,7 +15,6 @@ import (
  * email   : 2091938785@qq.com
  * author  : 美丽的地球啊 - mliu
  * ================================================================================ */
-
 type (
 	OauthState struct {
 		encryptKey string //密钥

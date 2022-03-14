@@ -10,12 +10,12 @@ import (
  * email   : 2091938785@qq.com
  * author  : 美丽的地球啊 - mliu
  * ================================================================================ */
-
 type (
 	OauthWeChat struct {
 		Oauth
 	}
 
+    //微信访问Token信息响应结构
 	WeChatAccessTokenResponse struct {
 		ErrCode      string `form:"errcode" json:"errcode"`
 		ErrMsg       string `form:"errmsg" json:"errmsg"`
